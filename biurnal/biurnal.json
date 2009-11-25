@@ -1,0 +1,38 @@
+{
+  "processes":
+  {
+    "on_background": { 
+      "background": {
+        "clear": ["$background"]
+      }
+    }
+  },
+  "colors":
+  {
+    "background": "ffffff",
+    "foreground": "000000",
+    "link": "ff0000"
+  },
+  "css": ["css/style.css"],
+  "images": 
+  {
+    "img": [
+      { "path": "images/menu-sprites.png", "alter": ["on_background"] },
+      { "path": "images/menu-sprites-bg.png", "alter": ["on_background"] },
+      {
+        "path": "images/play.png",
+        "alter": [{
+          "background": { "clear": ["$link"] },
+          "postprocess": { "mask": "images/play-mask.png" }
+        }]
+      },
+      {
+        "path": "images/druplicon.png",
+        "alter": [{
+          "background": { "clear": ["$link"] },
+          "postprocess": { "mask": "images/druplicon-mask.png" }
+        }]
+      }
+    ]
+  }
+}

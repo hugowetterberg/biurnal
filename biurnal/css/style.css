@@ -1,0 +1,12 @@
+body {
+  background-color: $background;
+  color: $foreground;
+}
+
+a {
+  color: ${"mix":["$link","$background","0.1"]}$;
+}
+
+a:hover {
+  color: $background;
+}
