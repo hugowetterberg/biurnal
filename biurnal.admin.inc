@@ -8,7 +8,7 @@
  */
 
 function biurnal_scheme_form($theme) {
-  global $_biurnal_;
+
   $base = drupal_get_path('module', 'biurnal');
 
   // Add Farbtastic color picker
@@ -29,7 +29,7 @@ function biurnal_scheme_form($theme) {
     'text'       => t('Text color')
   );
 
-  $palette = $_biurnal_->get_colors_for_theme(arg(4));
+  $palette = Biurnal::instance()->get_colors_for_theme(arg(4));
   foreach ($palette as $name => $value) {
     $form['palette']['biurnal_color_' . $name] = array(
       '#type'          => 'textfield',
@@ -39,7 +39,7 @@ function biurnal_scheme_form($theme) {
     );
   }
 
-  $bg_dir = $_biurnal_->biurnal_path . '/backgrounds';
+  $bg_dir = Biurnal::instance()->biurnal_path . '/backgrounds';
   $backgrounds = array('' => t('Select a background'));
   if (is_dir($bg_dir)) {
     if ($dh = opendir($bg_dir)) {
@@ -67,13 +67,13 @@ function biurnal_scheme_form($theme) {
 }
 
 function biurnal_scheme_form_submit($form, &$form_state) {
-  global $_biurnal_;
-  $palette = $_biurnal_->get_colors_for_theme(arg(4));
+
+  $palette = Biurnal::instance()->get_colors_for_theme(arg(4));
   foreach ($palette as $name => $value) {
     $palette[$name]=$form_state['values']['biurnal_color_' . $name];
   }
 
-  $_biurnal_->set_colors_for_theme(arg(4), $palette);
+  Biurnal::instance()->set_colors_for_theme(arg(4), $palette);
   module_invoke_all('biurnal_scheme_saved', arg(4), $palette);
 }
 
