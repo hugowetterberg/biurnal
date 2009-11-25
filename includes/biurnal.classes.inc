@@ -44,11 +44,6 @@ class Biurnal {
     if (!is_dir($this->biurnal_path)) {
       mkdir($this->biurnal_path);
     }
-
-    $this->biurnal_backgrounds = $this->biurnal_path . '/backgrounds';
-    if (!is_dir($this->biurnal_backgrounds)) {
-      mkdir($this->biurnal_backgrounds);
-    }
   }
 
   public function resolve_path($path, $base) {
@@ -62,7 +57,7 @@ class Biurnal {
   public function load_json($json, $base_path = NULL, $is_file = TRUE) {
     $content = $json;
     if ($is_file) {
-      if (is_file($json)) {
+      if (file_exists($json)) {
         $content = file_get_contents($json);
       }
       else {
@@ -74,6 +69,7 @@ class Biurnal {
     }
 
     $data = json_decode($content, TRUE);
+    error_log('Data: ' . var_export($data, TRUE));
     if (isset($data)) {
       foreach ($data as $key => $values) {
         switch ($key) {
@@ -182,7 +178,6 @@ class Biurnal {
             $red   = ($rgb & 0xFF0000) >> 16;
             $green = ($rgb & 0x00FF00) >> 8;
             $blue  = ($rgb & 0x0000FF);
-
             $color = imagecolorallocatealpha($composite, $red, $green, $blue, $mask_alpha);
             imagesetpixel($composite, $x, $y, $color);
           }
@@ -328,21 +323,23 @@ class Biurnal {
   }
 
   public function preprocess(&$vars) {
+    global $theme_key;
     $this->init();
 
-    //Get theme name and json
-    $theme_name = basename(path_to_theme());
-    $this->biurnal_theme_path = path_to_theme() . '/biurnal';
-    if (is_dir($this->biurnal_theme_path)) {
-      $this->load_json($this->biurnal_theme_path . '/biurnal.json');
+    $this->biurnal_theme_path = drupal_get_path('theme', $theme_key);
+    $themes = list_themes(); 
+    $current_theme = $themes[$theme_key];
+
+    $theme_stack = array();
+    while ($current_theme) {
+      if ($this->theme_is_biurnal($current_theme->name)) {
+        $theme_stack[] = $current_theme;
+      }
+      $current_theme = empty($current_theme->base_theme) ? NULL : $themes[$current_theme->base_theme];
     }
 
-    if (function_exists('path_to_subtheme')) {
-      $theme_name = basename(path_to_subtheme());
-      $this->biurnal_theme_path = path_to_subtheme() . '/biurnal';
-      if (is_dir($this->biurnal_theme_path)) {
-        $this->load_json($this->biurnal_theme_path . '/biurnal.json');
-      }
+    while ($t = array_pop($theme_stack)) {
+      $this->load_json(drupal_get_path('theme', $t->name) . '/biurnal/biurnal.json');
     }
 
     //Allow the current node to override the theme in use
@@ -359,8 +356,8 @@ class Biurnal {
       $this->scheme = (object) array('nid' => 0, 'title' => 'default', 'changed' => 0);
     }
     else { //Read the colors from the biurnal node
-      if (isset($this->scheme->palette[$theme_name])) {
-        $palette = $this->scheme->palette[$theme_name];
+      if (isset($this->scheme->palette)) {
+        $palette = $this->scheme->palette;
         if (is_array($palette)) {
           foreach ($palette as $name => $color) {
             $this->update_color($name, intval(drupal_substr($color, 1), 16));
@@ -370,8 +367,7 @@ class Biurnal {
     }
 
     //Check if the needs to be created or recreated
-    $this->scheme_path = sprintf('%s/%s/%s', $this->biurnal_path, $theme_name, $this->scheme_identifier());
-    error_log(var_export($this->biurnal_path, TRUE));
+    $this->scheme_path = sprintf('%s/%s/%s', $this->biurnal_path, $theme_key, $this->scheme_identifier());
     if (!is_dir($this->scheme_path) || $this->scheme->changed > filemtime($this->scheme_path . '/touch.txt')) {
       //Delete old files
       if (is_dir($this->scheme_path)) {

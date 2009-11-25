@@ -74,23 +74,6 @@ function biurnal_update(&$node) {
   biurnal_insert($node, TRUE);
 }
 
-/**
- * Gets the default scheme for the installation.
- *
- * @return array
- */
-function biurnal_get_color_scheme() {
-  $biurnal = Biurnal::instance();
-  $themes = list_themes();
-  $scheme = array();
-  foreach ($themes as $theme) {
-    if ($theme->status && Biurnal::instance()->theme_is_biurnal($theme->name)) {
-      $scheme = array_merge($scheme, $biurnal->get_colors_for_theme($theme->name));
-    }
-  }
-  return $scheme;
-}
-
 function biurnal_insert(&$node, $is_update = FALSE) {
   $biurnal = Biurnal::instance();
   $scheme = biurnal_get_color_scheme();
