@@ -382,7 +382,7 @@ class Biurnal {
 
     //Check if the needs to be created or recreated
     $this->scheme_path = sprintf('%s/%s/%s', $this->biurnal_path, $theme_key, $this->scheme_identifier());
-    if (TRUE || !is_dir($this->scheme_path) || $this->scheme->changed > filemtime($this->scheme_path . '/touch.txt')) {
+    if (!is_dir($this->scheme_path) || $this->scheme->changed > filemtime($this->scheme_path . '/touch.txt')) {
       //Delete old files
       if (is_dir($this->scheme_path)) {
         _biurnal_rm_recursive($this->scheme_path);
