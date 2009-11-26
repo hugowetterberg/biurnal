@@ -8,17 +8,28 @@ function biurnal_schema() {
   $schema = array();
   $schema['biurnal_configuration'] = array(
     'fields' => array(
-      'nid' => array(
+      'id' => array(
         'type'       => 'serial',
         'not null'   => TRUE,
-        'disp-width' => '10',
+        'unsigned'   => TRUE,
+      ),
+      'changed' => array(
+        'type'      => 'int',
+        'size'      => 11,
+        'not null'  => TRUE,
+      ),
+      'title' => array(
+        'type'      => 'varchar',
+        'length'    => 255,
+        'not null'  => TRUE,
       ),
       'configuration' => array(
-        'type'     => 'text',
-        'not null' => TRUE,
+        'type'      => 'text',
+        'serialized'=> TRUE,
+        'not null'  => TRUE,
       ),
     ),
-    'primary key' => array('nid'),
+    'primary key' => array('id'),
   );
   return $schema;
 }
