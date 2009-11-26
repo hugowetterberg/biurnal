@@ -10,3 +10,7 @@ a {
 a:hover {
   color: ${"mix":["$link","$background","0.4"]}$;
 }
+
+#data-url-test {
+  background: url("img/menu-sprites-bg.png") top left no-repeat;
+}
