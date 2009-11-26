@@ -9,9 +9,10 @@
   },
   "colors":
   {
-    "background": "ffffff",
-    "foreground": "000000",
-    "link": "ff0000"
+    "background": "bdcbdb",
+    "foreground": "525252",
+    "link": "913636",
+    "druplicon": "ebc694"
   },
   "css": ["css/style.css"],
   "images": 
@@ -29,7 +30,7 @@
       {
         "path": "images/druplicon.png",
         "alter": [{
-          "background": { "clear": ["$link"] },
+          "background": { "clear": ["$druplicon"] },
           "postprocess": { "mask": "images/druplicon-mask.png" }
         }]
       }

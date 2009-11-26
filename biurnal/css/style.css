@@ -1,5 +1,5 @@
 body {
-  background-color: $background;
+  background: $background url("img/druplicon.png") top right no-repeat;
   color: $foreground;
 }
 
@@ -8,5 +8,5 @@ a {
 }
 
 a:hover {
-  color: $background;
+  color: ${"mix":["$link","$background","0.4"]}$;
 }
