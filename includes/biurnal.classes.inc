@@ -487,7 +487,7 @@ class Biurnal {
         $content = preg_replace_callback('/\$([_a-z]+)/', array($this, 'color_callback'), $content);
         file_put_contents($this->scheme_path . '/ie.' . $name, $content);
 
-        $content = preg_replace_callback('/url\(([^\)]+)\)/', array($this, 'data_url_callback'), $content);
+        $content = preg_replace_callback('/url\([\'"]?([^\)\'"]+)[\'"]?\)/', array($this, 'data_url_callback'), $content);
         file_put_contents($this->scheme_path . '/' . $name, $content);
       }
     }
