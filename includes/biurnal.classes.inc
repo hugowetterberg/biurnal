@@ -2,7 +2,10 @@
 // $Id$
 
 class Biurnal {
+  private $state = 'uninitialized';
+
   private static $instance;
+  private $paths;
   private $images;
   private $colors;
   private $css;
@@ -18,6 +21,7 @@ class Biurnal {
   }
 
   function __construct() {
+    $this->paths      = array();
     $this->images     = array();
     $this->colors     = array();
     $this->css        = array();
@@ -40,90 +44,55 @@ class Biurnal {
   }
 
   public function init() {
-    $this->biurnal_path = file_directory_path() . '/biurnal';
-    if (!is_dir($this->biurnal_path)) {
-      mkdir($this->biurnal_path);
+    if ($this->state == 'uninitialized') {
+      $this->state = 'initialized';
+      $this->biurnal_path = file_directory_path() . '/biurnal';
+      if (!is_dir($this->biurnal_path)) {
+        mkdir($this->biurnal_path);
+      }
     }
   }
 
-  public function resolve_path($path, $base) {
-    if (drupal_substr($path, 0, 1) != '/') {
-      $path = '/'. $path;
+  public function resolve_path($path) {
+    foreach ($this->paths as $lp) {
+      if (file_exists($lp . '/' . $path)) {
+        return realpath($lp . '/' . $path);
+      }
     }
-    $path = realpath('./' . $base . $path);
-    return $path;
+    return FALSE;
   }
 
-  public function load_json($json, $base_path = NULL, $is_file = TRUE) {
-    $content = $json;
-    if ($is_file) {
-      if (file_exists($json)) {
-        $content = file_get_contents($json);
-      }
-      else {
-        return;
-      }
-      if (!isset($base_path)) {
-        $base_path = dirname($json);
-      }
-    }
-
-    $data = json_decode($content, TRUE);
-    error_log('Data: ' . var_export($data, TRUE));
-    if (isset($data)) {
-      foreach ($data as $key => $values) {
-        switch ($key) {
-          case 'colors':
-            foreach ($values as $name => $color) {
-              $this->set_color($name, intval($color, 16));
+  public function read_data($data) {
+    foreach ($data as $key => $values) {
+      switch ($key) {
+        case 'paths':
+          $this->paths = array_merge($values, $this->paths);
+          break;
+        case 'colors':
+          foreach ($values as $name => $color) {
+            $this->set_color($name, intval($color, 16));
+          }
+          break;
+        case 'css':
+          foreach ($values as $path) {
+            $this->add_css($path);
+          }
+          break;
+        case 'images':
+          foreach ($values as $dir => $images) {
+            foreach ($images as $image) {
+              $path = $this->resolve_path($image['path'], $base_path);
+              $properties = isset($image['properties'])?$image['properties']:array();
+              $this->add_image($image['path'], $image['alter'], $dir, $properties);
             }
-            break;
-          case 'css':
-            foreach ($values as $path) {
-              $resolved_path = $this->resolve_path($path, $base_path);
-              if ($resolved_path) {
-                $this->add_css($resolved_path);
-              }
-              else {
-                drupal_set_message(t('Biurnal could not find the css file "%path"',
-                  array(
-                    '%path' => $path,
-                  )), 'error');
-              }
-            }
-            break;
-          case 'images':
-            foreach ($values as $dir => $images) {
-              $i = 0;
-              foreach ($images as $image) {
-                $i++;
-                $path = $this->resolve_path($image['path'], $base_path);
-                $properties = isset($image['properties'])?$image['properties']:array();
-                $properties['base_path'] = $base_path;
-                if ($path) {
-                  $this->add_image($path, $image['alter'], $dir, $properties);
-                }
-                else {
-                  drupal_set_message(t('Biurnal could not find the image file "%path", number %current of %count in "%dir"', array(
-                    '%path'    => $image['path'],
-                    '%current' => $i,
-                    '%count'   => count($images),
-                    '%dir'     => $dir,
-                  )), 'error');
-                }
-              }
-            }
-            break;
-          case 'processes':
-            foreach ($values as $name => $process) {
-              $this->add_process($name, $process);
-            }
-            break;
-        }
+          }
+          break;
+        case 'processes':
+          foreach ($values as $name => $process) {
+            $this->add_process($name, $process);
+          }
+          break;
       }
-    }
-    else {
-      drupal_set_message(t('Could not parse biurnal json data'), 'error');
     }
   }
 
@@ -316,33 +285,78 @@ class Biurnal {
     }
   }
 
-  public static function theme_head() {
-    $vars = array();
-    Biurnal::instance()->preprocess($vars, 'page');
-    return $vars['biurnal'];
+  public function get_theme_data($theme) {
+    $data = array();
+    $data_file = NULL;
+    if ($this->theme_is_biurnal($theme, $data_file)) {
+      require_once($data_file);
+      if (function_exists($theme . '_biurnal_data')) {
+        $data = call_user_func($theme . '_biurnal_data');
+        if (!isset($data['paths'])) {
+          $data['paths'][] = drupal_get_path('theme', $theme);
+        }
+        drupal_alter('biurnal_theme_data', $data, $theme);
+      }
+    }
+    return $data;
+  }
+
+  public function bootstrap() {
+    global $theme;
+
+    $this->init();
+
+    if ($this->state == 'initialized') {
+      $this->state = 'processed';
+
+      $theme_key = variable_get('theme_default', '');
+      if (!empty($theme)) {
+        $theme_key = $theme;
+      }
+      error_log('Processing for: ' . var_export($theme_key, TRUE));
+
+      // Get biurnal data from modules
+      $modules = module_implements('biurnal_data');
+      foreach ($modules as $module) {
+        $data = call_user_func($module . '_biurnal_data');
+        if (!isset($data['paths'])) {
+          $data['paths'][] = drupal_get_path('module', $module);
+        }
+        $this->read_data($data);
+      }
+
+      // Get biurnal data from the theme and it's parent themes
+      $this->biurnal_theme_path = drupal_get_path('theme', $theme_key);
+      $themes = list_themes(); 
+      $current_theme = $themes[$theme_key];
+
+      // Build a theme stack of the theme and it's parent themes
+      $theme_stack = array();
+      while ($current_theme) {
+        if ($this->theme_is_biurnal($current_theme->name)) {
+          $theme_stack[] = $current_theme;
+        }
+        $current_theme = empty($current_theme->base_theme) ? NULL : $themes[$current_theme->base_theme];
+      }
+
+      // Load data for the themes in the stack
+      while ($t = array_pop($theme_stack)) {
+        $this->read_data($this->get_theme_data($t->name));
+      }
+      error_log('Processed: ' . var_export($this->colors, TRUE));
+    }
   }
 
   public function preprocess(&$vars) {
-    global $theme_key;
-    $this->init();
+    global $theme;
+    $this->bootstrap();
 
-    $this->biurnal_theme_path = drupal_get_path('theme', $theme_key);
-    $themes = list_themes(); 
-    $current_theme = $themes[$theme_key];
-
-    $theme_stack = array();
-    while ($current_theme) {
-      if ($this->theme_is_biurnal($current_theme->name)) {
-        $theme_stack[] = $current_theme;
-      }
-      $current_theme = empty($current_theme->base_theme) ? NULL : $themes[$current_theme->base_theme];
+    $theme_key = variable_get('theme_default', '');
+    if (!empty($theme)) {
+      $theme_key = $theme;
     }
 
-    while ($t = array_pop($theme_stack)) {
-      $this->load_json(drupal_get_path('theme', $t->name) . '/biurnal/biurnal.json');
-    }
-
-    //Allow the current node to override the theme in use
+    //Allow the current node to override the scheme in use
     if (isset($vars['node']) && $vars['node']->type == 'biurnal') {
       $this->scheme = $vars['node'];
     }
@@ -368,7 +382,7 @@ class Biurnal {
 
     //Check if the needs to be created or recreated
     $this->scheme_path = sprintf('%s/%s/%s', $this->biurnal_path, $theme_key, $this->scheme_identifier());
-    if (!is_dir($this->scheme_path) || $this->scheme->changed > filemtime($this->scheme_path . '/touch.txt')) {
+    if (TRUE || !is_dir($this->scheme_path) || $this->scheme->changed > filemtime($this->scheme_path . '/touch.txt')) {
       //Delete old files
       if (is_dir($this->scheme_path)) {
         _biurnal_rm_recursive($this->scheme_path);
@@ -406,100 +420,76 @@ class Biurnal {
       }
 
       foreach ($images as $image) {
-        list($width, $height) = getimagesize($image['path']);
-        $img = imagecreatefrompng($image['path']);
+        $path = $this->resolve_path($image['path']);
+        if ($path) {
+          list($width, $height) = getimagesize($path);
+          $img = imagecreatefrompng($path);
 
-        //Transparent background
-        $back = imagecreatetruecolor($width, $height);
-        imagesavealpha($back, TRUE);
-        $trans_colour = imagecolorallocatealpha($back, 0, 0, 0, 127);
-        imagefill($back, 0, 0, $trans_colour);
+          //Transparent background
+          $back = imagecreatetruecolor($width, $height);
+          imagesavealpha($back, TRUE);
+          $trans_colour = imagecolorallocatealpha($back, 0, 0, 0, 127);
+          imagefill($back, 0, 0, $trans_colour);
 
-        $processes = NULL;
-        if (isset($image['alter'])) {
-          $processes = array();
-          foreach ($image['alter'] as $p) {
-            if (is_array($p)) {
-              $processes[] = $p;
+          $processes = NULL;
+          if (isset($image['alter'])) {
+            $processes = array();
+            foreach ($image['alter'] as $p) {
+              if (is_array($p)) {
+                $processes[] = $p;
+              }
+              elseif (is_string($p) && isset($this->processes[$p])) {
+                $processes[] = $this->processes[$p];
+              }
             }
-            elseif (is_string($p) && isset($this->processes[$p])) {
-              $processes[] = $this->processes[$p];
+
+            //Run foreground and background processes
+            foreach ($processes as $process) {
+              if (isset($process['background'])) {
+                $back = $this->apply_operations($image, $back, $process['background']);
+              }
+              if (isset($process['foreground'])) {
+                $img = $this->apply_operations($image, $img, $process['foreground']);
+              }
+            }
+          }
+
+          imagecopy($back, $img, 0, 0, 0, 0, $width, $height);
+          imagedestroy($img);
+
+          //Run postpreocess operations
+          if (isset($processes)) {
+            foreach ($processes as $process) {
+              if (isset($process['postprocess'])) {
+                $back = $this->apply_operations($image, $back, $process['postprocess']);
+              }
             }
           }
 
-          //Run foreground and background processes
-          foreach ($processes as $process) {
-            if (isset($process['background'])) {
-              $back = $this->apply_operations($image, $back, $process['background']);
-            }
-            if (isset($process['foreground'])) {
-              $img = $this->apply_operations($image, $img, $process['foreground']);
-            }
+          $file = $dir . '/' . basename($image['path']);
+          if (file_exists($file)) {
+            unlink($file);
           }
+
+          imagepng($back, $file);
+          imagedestroy($back);
         }
-
-        imagecopy($back, $img, 0, 0, 0, 0, $width, $height);
-        imagedestroy($img);
-
-        //Run postpreocess operations
-        if (isset($processes)) {
-          foreach ($processes as $process) {
-            if (isset($process['postprocess'])) {
-              $back = $this->apply_operations($image, $back, $process['postprocess']);
-            }
-          }
-        }
-
-        $file = $dir . '/' . basename($image['path']);
-        if (file_exists($file)) {
-          unlink($file);
-        }
-
-        imagepng($back, $file);
-        imagedestroy($back);
-      }
-    }
-
-    //Process backgrounds
-    if (is_dir($this->biurnal_backgrounds) && isset($this->processes['page_background_process'])) {
-      $bg_dir = $this->scheme_path . '/backgrounds';
-      if (!is_dir($bg_dir)) {
-        mkdir($bg_dir);
-      }
-
-      $bg_process = $this->processes['page_background_process'];
-      if ($dh = opendir($this->biurnal_backgrounds)) {
-        while (($file = readdir($dh)) !== FALSE) {
-          if (drupal_substr($file, 0, 1) != '.') {
-            list($width, $height) = getimagesize($this->biurnal_backgrounds . '/' . $file);
-            $img  = imagecreatefrompng($this->biurnal_backgrounds . '/' . $file);
-            $back = imagecreatetruecolor($width, $height);
-
-            if (isset($bg_process['background'])) {
-              $back = $this->apply_operations($back, $bg_process['background']);
-            }
-            if (isset($bg_process['front'])) {
-              $img = $this->apply_operations($img, $bg_process['front']);
-            }
-
-            imagecopy($back, $img, 0, 0, 0, 0, $width, $height);
-            imagejpeg($back, $bg_dir . '/' . basename($file, '.png') . '.jpg', 80);
-          }
-        }
-        closedir($dh);
       }
     }
 
     //Process css files
     foreach ($this->css as $css) {
       $name = basename($css);
-      $content = file_get_contents($css);
-      $content = preg_replace_callback('/\$(\{.*\})\$/', array($this, 'filter_callback'), $content);
-      $content = preg_replace_callback('/\$([_a-z]+)/', array($this, 'color_callback'), $content);
-      file_put_contents($this->scheme_path . '/ie.' . $name, $content);
+      $path = $this->resolve_path($css);
+      if ($path) {
+        $content = file_get_contents($path);
+        $content = preg_replace_callback('/\$(\{.*\})\$/', array($this, 'filter_callback'), $content);
+        $content = preg_replace_callback('/\$([_a-z]+)/', array($this, 'color_callback'), $content);
+        file_put_contents($this->scheme_path . '/ie.' . $name, $content);
 
-      $content = preg_replace_callback('/url\(([^\)]+)\)/', array($this, 'data_url_callback'), $content);
-      file_put_contents($this->scheme_path . '/' . $name, $content);
+        $content = preg_replace_callback('/url\(([^\)]+)\)/', array($this, 'data_url_callback'), $content);
+        file_put_contents($this->scheme_path . '/' . $name, $content);
+      }
     }
   }
 
@@ -549,30 +539,23 @@ class Biurnal {
     return $this->colors;
   }
 
-  public function theme_is_biurnal($name) {
-    $file = drupal_get_path('theme', $name) . '/biurnal/biurnal.json';
-    return is_file($file);
+  public function get_colors_hex() {
+    $colors = array();
+
+    foreach ($this->colors as $name => $rgb) {
+      $colors[$name] = $this->color_to_hex($rgb);
+    }
+
+    return $colors;
+  }
+
+  public function theme_is_biurnal($name, &$biurnal_file=NULL) {
+    $biurnal_file = drupal_get_path('theme', $name) . '/' . $name . '.biurnal.inc';
+    return file_exists($biurnal_file);
   }
 
   public function set_scheme($nid) {
     variable_set('biurnal_scheme', $nid);
-  }
-
-  public function get_colors_for_theme($name) {
-    $palette=array();
-
-    $file = drupal_get_path('theme', $name) . '/biurnal/biurnal.json';
-    $content = file_get_contents($file);
-    $data = json_decode($content, TRUE);
-    if (isset($data) && isset($data['colors'])) {
-      foreach ($data['colors'] as $name => $color) {
-        $palette[$name] = '#' . $color;
-      }
-      return $palette;
-    }
-    else {
-      drupal_set_message(t('Could not parse biurnal json data'), 'error');
-    }
   }
 
   public function stop_preview() {

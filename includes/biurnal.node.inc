@@ -40,7 +40,10 @@ function biurnal_form(&$node) {
     '#weight'        => -5
   );
 
-  $scheme = biurnal_get_color_scheme();
+  $biurnal = Biurnal::instance();
+  $biurnal->bootstrap();
+  $scheme = $biurnal->get_colors_hex();
+  error_log('Scheme: ' . var_export($scheme, TRUE));
   if (isset($node->palette)) {
     $scheme = array_merge($scheme, $node->palette);
   }
@@ -76,11 +79,12 @@ function biurnal_update(&$node) {
 
 function biurnal_insert(&$node, $is_update = FALSE) {
   $biurnal = Biurnal::instance();
-  $scheme = biurnal_get_color_scheme();
 
   if (!isset($node->palette)) {
     $node->palette = array();
   }
+  $biurnal->bootstrap();
+  $scheme = $biurnal->get_colors_hex();
   foreach ($scheme as $name => $color) {
     $attribute = 'biurnal_color_' . $name;
     if (isset($node->$attribute)) {
@@ -105,7 +109,9 @@ function biurnal_insert(&$node, $is_update = FALSE) {
 }
 
 function biurnal_load(&$node) {
-  $node->palette = biurnal_get_color_scheme();
+  $biurnal = Biurnal::instance();
+  $biurnal->bootstrap();
+  $node->palette = $biurnal->get_colors_hex();
   //Fetch config from database
   $bc = db_fetch_object(db_query('SELECT configuration FROM {biurnal_configuration} WHERE nid = %d', $node->nid));
   if ($bc) {
