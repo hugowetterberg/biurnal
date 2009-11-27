@@ -99,12 +99,14 @@ class Biurnal {
   }
 
   public function mix_colors($a, $b, $proportions = 0.5) {
-    list($r1, $g1, $b1) = $a;
-    list($r2, $g2, $b2) = $b;
+    list($r1, $g1, $b1, $a1) = $a;
+    list($r2, $g2, $b2, $a2) = $b;
+
     $r = ($r2 - $r1 != 0) ? intval($r1 + ($r2 - $r1) * $proportions): $r1;
     $g = ($g2 - $g1 != 0) ? intval($g1 + ($g2 - $g1) * $proportions): $g1;
     $b = ($b2 - $b1 != 0) ? intval($b1 + ($b2 - $b1) * $proportions): $b1;
-    return array($r, $g, $b);
+    $a = ($a2 - $a1 != 0) ? intval($a1 + ($a2 - $a1) * $proportions): $a1;
+    return array($r, $g, $b, $a);
   }
 
   public function add_colors($a, $b, $proportions = 0.5) {
@@ -161,41 +163,119 @@ class Biurnal {
     return $image;
   }
 
-  public function copy_preserve_alpha($obj, $image, $color=Null) {
+  /**
+   * Copies the $image to $background, allowing the background to show
+   * through transparent areas.
+   *
+   * @param resource $image
+   * @param resource $background
+   * @return void
+   */
+  public function copy($obj, $image, $background, $x=0, $y=0) {
+    $width     = min(imagesx($background), imagesx($image));
+    $height    = min(imagesy($background), imagesy($image));
+    imagecopy($background, $image, $x, $y, 0, 0, $width, $height);
+  }
+
+  /**
+   * Allocates a image color given a rgb or rgba array
+   *
+   * @param resource $image
+   * @param array $color
+   * @return resource
+   */
+  private function allocate_image_color($image, $color) {
+    switch (!empty($color) ? count($color) : 0) {
+      case 3:
+        $image_color = imagecolorallocate($image, $color[0], $color[1], $color[2]);
+        break;
+      case 4:
+        $image_color = imagecolorallocatealpha($image, $color[0], $color[1], $color[2], $color[2]);
+        break;
+      default:
+        $image_color = imagecolorallocatealpha($image, 0, 0, 0, 0);
+        break;
+    }
+    return $image_color;
+  }
+
+  /**
+   * Creates a empty image with the same dimension as $image. The canvas image
+   * will either have the $color you specify, or be transparent if the color
+   * is omitted.
+   *
+   * @param Biurnal $object
+   * @param resource $image
+   * @param array $color
+   * @return resource
+   */
+  public function canvas_from($object, $image, $color=NULL) {
     $width      = imagesx($image);
     $height     = imagesy($image);
-    $background = imagecreatetruecolor($width, $height);
+    $canvas = imagecreatetruecolor($width, $height);
+    imagesavealpha($canvas, TRUE);
+    $canvas_color = $this->allocate_image_color($canvas, $color);
+    imagefilledrectangle($canvas, 0, 0, $width, $height, $canvas_color);
+    return $canvas;
+  }
 
-    $bg_color = -1;
-    if (isset($color)) {
-      $bg_color = imagecolorallocate($background, $color[0], $color[1], $color[2]);
-    }
-    else {
-      $bg_color = imagecolorallocatealpha($background, 0, 0, 0, 0);
-    }
+  /**
+   * Creates a empty image of the given dimensions. The canvas image will 
+   * either have the $color you specify, or be transparent if the color
+   * is omitted.
+   *
+   * @param Biurnal $object
+   * @param int $x
+   * @param int $y
+   * @param array $color
+   * @return resource
+   */
+  public function canvas($object, $x, $y, $color=NULL) {
+    $width      = imagesx($image);
+    $height     = imagesy($image);
+    $canvas = imagecreatetruecolor($width, $height);
+    imagesavealpha($canvas, TRUE);
+    $canvas_color = $this->allocate_image_color($canvas, $color);
+    imagefilledrectangle($canvas, 0, 0, $width, $height, $canvas_color);
+    return $canvas;
+  }
 
-    imagefilledrectangle($background, 0, 0, $width, $height, $bg_color);
-    imagecopy($background, $image, 0, 0, 0, 0, $width, $height);
+  /**
+   * Copies $image onto $canvas preserving the alpha channel of $image in the
+   * finished result.
+   *
+   * @param Biurnal $obj
+   * @param resource $image
+   * @param resource $canvas
+   * @param int $x
+   * @param int $y
+   * @return void
+   */
+  public function copy_preserve_alpha($obj, $image, $canvas, $x=0, $y=0) {
+    $width = min(imagesx($canvas), imagesx($image));
+    $height = min(imagesy($canvas), imagesy($image));
+
+    imagecopy($canvas, $image, 0, 0, 0, 0, $width, $height);
 
     for ($x = 0; $x < $width; $x++) {
       for ($y = 0; $y < $width; $y++) {
-        $b_rgba = imagecolorat($background, $x, $y);
+        $c_rgba = imagecolorat($canvas, $x, $y);
         $i_rgba = imagecolorat($image, $x, $y);
 
         $alpha = ($i_rgba & 0x7F000000) >> 24;
-        $red   = ($b_rgba & 0xFF0000) >> 16;
-        $green = ($b_rgba & 0x00FF00) >> 8;
-        $blue  = ($b_rgba & 0x0000FF);
+        $red   = ($c_rgba & 0xFF0000) >> 16;
+        $green = ($c_rgba & 0x00FF00) >> 8;
+        $blue  = ($c_rgba & 0x0000FF);
 
-        $c = imagecolorallocatealpha($image, $red, $green, $blue, $alpha);
-        imagesetpixel($image, $x, $y, $c);
+        $c = imagecolorallocatealpha($canvas, $red, $green, $blue, $alpha);
+        imagesetpixel($canvas, $x, $y, $c);
       }
     }
-    imagedestroy($background);
-
-    return $image;
   }
 
+  /**
+   * Deprecated?
+   */
   public function clear_to_color($obj, $image, $color = NULL) {
     $width  = imagesx($image);
     $height = imagesy($image);
@@ -215,25 +295,43 @@ class Biurnal {
     return $background;
   }
 
-  public function clear_to_gradient($obj, $image, $color_a, $color_b, $direction="vertical") {
-    list($r1, $g1, $b1) = $color_a;
-    list($r2, $g2, $b2) = $color_b;
-
-    $width  = imagesx($image);
-    $height = imagesy($image);
-    imagedestroy($image);
-
-    $background = imagecreatetruecolor($width, $height);
-
-    for ($i=0; $i<$height; $i++) {
-      $r = ( $r2 - $r1 != 0 ) ? intval( $r1 + ( $r2 - $r1 ) * ($i/$height) ): $r1;
-      $g = ( $g2 - $g1 != 0 ) ? intval( $g1 + ( $g2 - $g1 ) * ($i/$height) ): $g1;
-      $b = ( $b2 - $b1 != 0 ) ? intval( $b1 + ( $b2 - $b1 ) * ($i/$height) ): $b1;
-
-      imagefilledrectangle($background, 0, $i, $width-1, $i, imagecolorallocate($background, $r, $g, $b));
+  private function alpha_component($color, $default=127) {
+    if (count($color)==4) {
+      return $color[3];
     }
+    else {
+      return $default;
+    }
+  }
 
-    return $background;
+  /**
+   * Draws a gradient onto a $canvas.
+   *
+   * @param string $obj 
+   * @param string $canvas 
+   * @param string $color_a 
+   * @param string $color_b 
+   * @param string $direction 
+   * @return void
+   */
+  public function gradient($obj, $canvas, $color_a, $color_b, $direction="vertical") {
+    $width  = imagesx($canvas);
+    $height = imagesy($canvas);
+
+    switch ($direction) {
+      case 'horizontal':
+        for ($i=0; $i<$width; $i++) {
+          $rgba = mix_colors($color_a, $color_b, ($i/$width));
+          imagefilledrectangle($canvas, $i, 0, $i, $height-1, $this->allocate_image_color($canvas, $rgba));
+        }
+        break;
+      default: // Vertical
+        for ($i=0; $i<$height; $i++) {
+          $rgba = mix_colors($color_a, $color_b, ($i/$height));
+          imagefilledrectangle($canvas, 0, $i, $width-1, $i, $this->allocate_image_color($canvas, $rgba));
+        }
+        break;
+    }
   }
 
   private function resolve_params($params) {
@@ -252,6 +350,9 @@ class Biurnal {
       }
       elseif (is_string($param) && drupal_substr($param, 0, 2) == "##") {
         $args[] = $this->to_hsl_triplet(drupal_substr($param, 2));
+      }
+      elseif (is_string($param) && drupal_substr($param, 0, 2) == "&#") {
+        // TODO: Image reference
       }
       elseif (is_string($param) && drupal_substr($param, 0, 1) == "#") {
         $args[] = $this->intrgb(intval(drupal_substr($param, 1), 16));
@@ -328,7 +429,7 @@ class Biurnal {
 
       // Get biurnal data from the theme and it's parent themes
       $this->biurnal_theme_path = drupal_get_path('theme', $theme_key);
-      $themes = list_themes(); 
+      $themes = list_themes();
       $current_theme = $themes[$theme_key];
 
       // Build a theme stack of the theme and it's parent themes
