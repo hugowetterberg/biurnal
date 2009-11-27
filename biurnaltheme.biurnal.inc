@@ -24,6 +24,12 @@ function biurnaltheme_biurnal_data() {
     'css' => array('css/style.css'),
     'images' => array(
       'img' => array(
+        'menu_sprites.png' => array(
+          array('load'=>'sprites', array('images/menu-sprites.png')),
+          array('canvas_from'=>'background', array('&$sprites', '$background')),
+          array('copy', array('&$sprites', '&$canvas')),
+          array('save', array('&$canvas')),
+        ),
         array(
           'path' => 'images/menu-sprites.png',
           'alter' => array('on_background'),
