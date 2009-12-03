@@ -223,15 +223,23 @@ function biurnal_add_configuration_form_submit($form, $form_state) {
 function biurnal_scheme_form($palette) {
   $form = array();
 
-  // Add palette fields
-  $names = array(
-    'main'       => t('Base color'),
-    'background' => t('Background color'),
-    'link'       => t('Link color'),
-    'top'        => t('Header top'),
-    'bottom'     => t('Header bottom'),
-    'text'       => t('Text color')
-  );
+  // Import field names from theme.biurnal.inc
+  $theme = variable_get('theme_default', '');
+  if($theme) {
+    $biurnal_file = drupal_get_path('theme', $theme) . '/' . $theme . '.biurnal.inc';
+    require_once($biurnal_file);
+    if (function_exists($theme . '_biurnal_data')) {
+      $scheme = call_user_func($theme . '_biurnal_data');
+      $names = array();
+      foreach ($scheme['colors'] as $key => $value) {
+        foreach ($value as $name => $title) {
+          if($name == 'title') {
+            $names[$key] = $title;
+          }
+        }
+      }
+    }
+  }
 
   foreach ($palette as $name => $value) {
     $form['biurnal_color_' . $name] = array(

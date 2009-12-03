@@ -2,13 +2,19 @@
 .biurnal-color-scheme-form .biurnal-farbtastic-placeholder
 {
   float: right;
-  margin-bottom: 6px;
+  margin: 10px;
 }
 
 .biurnal-color-scheme-form .form-item
 {
   width: 95px;
   float: left;
+  margin: 0 10px 0 0 !important;
+}
+
+.biurnal-color-scheme-form .form-item input {
+  width: 85px !important;
+  padding: 4px !important;
 }
 
 .biurnal-color-scheme-form .form-item label

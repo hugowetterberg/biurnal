@@ -71,8 +71,12 @@ class Biurnal {
           $this->paths = array_merge($values, $this->paths);
           break;
         case 'colors':
-          foreach ($values as $name => $color) {
-            $this->set_color($name, intval($color, 16));
+          foreach ($values as $key => $value) {
+            foreach ($value as $name => $color) {
+              if($name == 'color') {
+                $this->set_color($key, intval($color, 16));
+              }
+            }
           }
           break;
         case 'css':
