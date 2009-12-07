@@ -129,7 +129,7 @@ class Biurnal {
     }
   }
 
-  public function mask($obj, $image, $mask_image) {
+  public function mask($obj, $image, $mask_image, $alpha='red') {
     $path = $this->image_reference($mask_image, $obj);
     if (file_exists($path)) {
       $mask = imagecreatefrompng($path);
@@ -146,7 +146,19 @@ class Biurnal {
           for ($y = 0; $y < $height; $y++) {
             //Extract red channel from mask pixel
             $mask_rgb   = imagecolorat($mask, $x, $y);
-            $mask_alpha = max(127 - (($mask_rgb & 0xFF0000) >> 16) / 2, 0);
+            switch ($alpha) {
+              case 'red':
+                $mask_alpha = max(127 - (($mask_rgb & 0xFF0000) >> 16) / 2, 0);
+                break;
+              case 'green':
+                $mask_alpha = max(127 - (($mask_rgb & 0x00FF00) >> 8) / 2, 0);
+                break;
+              case 'blue':
+                $mask_alpha = max(127 - (($mask_rgb & 0x0000FF)) / 2, 0);
+                break;
+              default: // Alpha
+                $mask_alpha = ($mask_rgb & 0x7F000000) >> 24;
+            }
 
             //Extract color channels from image
             $rgb   = imagecolorat($image, $x, $y);
