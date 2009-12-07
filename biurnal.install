@@ -29,7 +29,7 @@ function biurnal_schema() {
       ),
       'configuration' => array(
         'type'      => 'text',
-        'size'      => 'small',
+        'size'      => 'normal',
         'serialized'=> TRUE,
         'not null'  => TRUE,
       ),
