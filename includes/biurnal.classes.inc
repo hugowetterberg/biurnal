@@ -133,14 +133,14 @@ class Biurnal {
     $path = $this->image_reference($mask_image, $obj);
     if (file_exists($path)) {
       $mask = imagecreatefrompng($path);
+      imagesavealpha($mask, TRUE);
 
       if ($mask) {
         $width     = min(imagesx($mask), imagesx($image));
         $height    = min(imagesy($mask), imagesy($image));
         $composite = imagecreatetruecolor($width, $height);
+        imagealphablending($composite, FALSE);
         imagesavealpha($composite, TRUE);
-        $trans_colour = imagecolorallocatealpha($composite, 0, 0, 0, 127);
-        imagefill($composite, 0, 0, $trans_colour);
 
         for ($x = 0; $x < $width; $x++) {
           for ($y = 0; $y < $height; $y++) {
