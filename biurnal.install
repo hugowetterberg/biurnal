@@ -46,3 +46,16 @@ function biurnal_install() {
 function biurnal_uninstall() {
   drupal_uninstall_schema('biurnal');
 }
+
+function biurnal_update_6001() {
+  $ret = array();
+
+  db_change_field($ret, 'biurnal_configuration', 'configuration', 'configuration', array(
+    'type'      => 'text',
+    'size'      => 'normal',
+    'serialized'=> TRUE,
+    'not null'  => TRUE,
+  ));
+
+  return $ret;
+}
