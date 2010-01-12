@@ -148,6 +148,14 @@ function biurnal_preview_scheme($nid) {
 }
 
 /**
+ * Implementation of hook_enable().
+ */
+function biurnal_enable() {
+  // Flush the autoload caches so that our classes are registered
+  autoload_flush_caches();
+}
+
+/**
  * Implementation of hook_preprocess_page().
  *
  * @param array $vars 
